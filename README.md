@@ -89,9 +89,105 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 
 ## Stay in touch
 
+- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
 - Website - [https://nestjs.com](https://nestjs.com/)
 - Twitter - [@nestframework](https://twitter.com/nestframework)
 
 ## License
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+
+# Changelly API Integration
+
+This is a NestJS backend service that integrates with the Changelly API to provide currency information and exchange services.
+
+## Features
+
+- Fetch all available currencies from Changelly
+- Filter currencies by type (fiat/crypto)
+- Get specific currency details by ticker
+- Modern REST API with proper error handling
+- CORS enabled for frontend integration
+
+## API Endpoints
+
+### Get All Currencies
+```
+GET /currencies
+```
+Returns all available currencies with their details.
+
+### Get Currencies by Type
+```
+GET /currencies/type/:type
+```
+Filter currencies by type. Valid types: `fiat` or `crypto`
+
+### Get Currency by Ticker
+```
+GET /currencies/ticker/:ticker
+```
+Get specific currency details by its ticker symbol.
+
+## Currency Data Structure
+
+Each currency object contains:
+
+```typescript
+{
+  type: 'fiat' | 'crypto',
+  ticker: string,           // Currency ticker (e.g., 'BTC', 'USD')
+  name: string,             // Full currency name
+  iconUrl: string,          // SVG icon URL
+  iconColoredUrl: string,   // Colored PNG icon URL
+  precision: string,        // Decimal precision
+  network?: string,         // Blockchain network (crypto only)
+  protocol?: string,        // Protocol (crypto only)
+  extraIdName?: string,     // Extra ID name (crypto only)
+  providers: any[]          // Available exchange providers
+}
+```
+
+## Setup
+
+1. Install dependencies:
+```bash
+npm install
+```
+
+2. Copy `config.example.ts` to `config.ts` and add your Changelly API credentials:
+```typescript
+export const config = {
+  changelly: {
+    privateKey: 'your-private-key',
+    publicKey: 'your-public-key'
+  }
+};
+```
+
+3. Start the development server:
+```bash
+npm run start:dev
+```
+
+The API will be available at `http://localhost:3000`
+
+## Frontend Integration
+
+The frontend Angular application is configured to communicate with this API. Make sure both applications are running:
+
+- Backend: `http://localhost:3000`
+- Frontend: `http://localhost:4200`
+
+## Error Handling
+
+The API includes comprehensive error handling:
+- Invalid currency types return 400 Bad Request
+- API failures return 500 Internal Server Error
+- Fallback currency data is provided when Changelly API is unavailable
+
+## Development
+
+- Run tests: `npm run test`
+- Run e2e tests: `npm run test:e2e`
+- Build for production: `npm run build`

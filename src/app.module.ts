@@ -1,15 +1,16 @@
 import { Module } from '@nestjs/common';
+import { MongooseModule } from '@nestjs/mongoose';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { PaymentModule } from './payment/payment.module';
-import { FraudModule } from './fraud/fraud.module';
-import { WebsocketModule } from './websocket/websocket.module';
-
-import { PaymentsModule } from './payments/payments.module';
+import { CurrenciesModule } from './currencies/currencies.module';
+import { config } from '../config.example';
 
 @Module({
-  imports: [PaymentModule, FraudModule, WebsocketModule, PaymentsModule],
+  imports: [
+    MongooseModule.forRoot(config.database.mongodbUri),
+    CurrenciesModule
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule {}
