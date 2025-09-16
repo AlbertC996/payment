@@ -1,0 +1,65 @@
+import axios from 'axios';
+import * as crypto from 'crypto';
+
+// مقداردهی از .env
+const apiUrl = 'https://api.changelly.com';
+const apiKey = process.env.CHANGELLY_API_KEY as string;
+const apiSecret = process.env.CHANGELLY_API_SECRET as string;
+
+console.log('API KEY:', apiKey);
+console.log('API SECRET exists:', !!apiSecret);
+// تابع امضا
+// تابع امضا (دو حالت: مستقیم و base64 decode)
+function signMessage(message: object) {
+  const msg = JSON.stringify(message);
+
+  try {
+    // حالت ۱: استفاده مستقیم از secret
+    return crypto
+      .createHmac('sha512', apiSecret)
+      .update(msg)
+      .digest('hex');
+  } catch (e) {
+    console.error('Direct HMAC failed, trying base64 decode...');
+  }
+
+  try {
+    // حالت ۲: اگر secret در واقع Base64 یا PEM بود
+    const secretBuffer = Buffer.from(apiSecret, 'base64');
+    return crypto
+      .createHmac('sha512', secretBuffer)
+      .update(msg)
+      .digest('hex');
+  } catch (e) {
+    console.error('Base64 HMAC also failed:', e.message);
+    throw e;
+  }
+}
+
+// فانکشن اصلی گرفتن لیست ارزها
+export async function getCurrencies() {
+  const message = {
+    jsonrpc: '2.0',
+    id: 'test',
+    method: 'getCurrencies',
+    params: {}
+  };
+
+  const sign = signMessage(message);
+
+  const headers = {
+    'api-key': apiKey,
+    sign,
+    'Content-type': 'application/json'
+  };
+
+  try {
+    console.log('Message:', JSON.stringify(message));
+    console.log('Headers:', headers);
+    const { data } = await axios.post(apiUrl, message, { headers });
+    return data;
+  } catch (error: any) {
+    console.error('Changelly API error:', error.response?.data || error.message);
+    throw new Error('Changelly API request failed');
+  }
+}

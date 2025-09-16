@@ -6,7 +6,7 @@ export const config = {
     walletAddress: 'TSh34pfzhJXiBEoKpa4cZ1nmH6Hqm1vTyo',
   },
   database: {
-    mongodbUri: 'mongodb+srv://stonegiant112:G3WTTwhj10uix5DG@cluster0.dyysp5a.mongodb.net/',
+    mongodbUri: 'mongodb://localhost:27017/payment',
   },
   server: {
     port: 3000,
