@@ -1,18 +1,15 @@
-import { useEffect, useState } from "react";
-import "../app.css";
+import React, { useEffect, useState } from "react";
 
 interface Currency {
   ticker: string;
   name: string;
-  image: string;
+  image?: string;
 }
 
-interface Props {
-  goBack: () => void;
-}
+interface Props { goBack: () => void }
 
 const CurrenciesPage: React.FC<Props> = ({ goBack }) => {
-  const [currencies, setCurrencies] = useState<Currency[]>([]);
+  const [currencies, setCurrencies] = useState<Currency[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,11 +17,14 @@ const CurrenciesPage: React.FC<Props> = ({ goBack }) => {
     const fetchCurrencies = async () => {
       try {
         const res = await fetch('/changenow/currencies');
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        const data: Currency[] = await res.json();
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`HTTP ${res.status}: ${text}`);
+        }
+        const data = await res.json();
         setCurrencies(data);
       } catch (err: any) {
-        setError(err.message);
+        setError(err.message || String(err));
       } finally {
         setLoading(false);
       }
@@ -37,13 +37,13 @@ const CurrenciesPage: React.FC<Props> = ({ goBack }) => {
 
   return (
     <div className="page-container">
-      <button onClick={goBack} className="back-button">Back</button>
-      <h1>Available Currencies</h1>
+      <button className="back-btn" onClick={goBack}>← Back</button>
+      <h2>Available Currencies</h2>
       <ul className="currency-list">
-        {currencies.map((currency) => (
-          <li key={currency.ticker}>
-            <img src={currency.image} alt={currency.name} width={32} height={32} />
-            {currency.name} ({currency.ticker})
+        {currencies && currencies.map(c => (
+          <li key={c.ticker}>
+            {c.image && <img src={c.image} alt={c.name} width={32} height={32} />}
+            {c.name} ({c.ticker})
           </li>
         ))}
       </ul>

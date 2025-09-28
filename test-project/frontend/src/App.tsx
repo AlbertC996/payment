@@ -11,14 +11,10 @@ function App() {
 
   return (
     <div className="page-container">
-      <h1>Crypto Demo App</h1>
-      <div style={{ marginTop: "20px" }}>
-        <button onClick={() => setPage("currencies")} style={{ marginRight: "10px" }}>
-          View Currencies
-        </button>
-        <button onClick={() => setPage("transaction")}>
-          Test Transaction
-        </button>
+      <h1>Payment demo</h1>
+      <div style={{ marginTop: 20 }}>
+        <button onClick={() => setPage("currencies")} className="btn">View Currencies</button>
+        <button onClick={() => setPage("transaction")} className="btn" style={{ marginLeft: 12 }}>Test Transaction</button>
       </div>
     </div>
   );
