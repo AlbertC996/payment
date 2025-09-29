@@ -72,4 +72,4 @@ export class Transaction {
   updatedAt?: Date;
 }
 
-export const TransactionSchema = SchemaFactory.createForClass(Transaction); 
+export const TransactionSchema = SchemaFactory.createForClass(Transaction);

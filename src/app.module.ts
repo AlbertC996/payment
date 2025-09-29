@@ -1,15 +1,10 @@
 import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { CurrenciesModule } from './currencies/currencies.module';
-import { config } from '../config.example';
+import { ChangeNowModule } from './changenow/changenow.module';
 
 @Module({
-  imports: [
-    MongooseModule.forRoot(config.database.mongodbUri),
-    CurrenciesModule
-  ],
+  imports: [ChangeNowModule],
   controllers: [AppController],
   providers: [AppService],
 })

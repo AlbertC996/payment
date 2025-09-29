@@ -1,13 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { getCurrencies } from './changelly/changelly.service';
+import { ChangeNowService } from './changenow/changenow.service';
 
 @Injectable()
 export class AppService {
-  getHello(): string {
-    return 'Hello World!';
-  }
+  constructor(private readonly changeNowService: ChangeNowService) {}
 
   async getCurrenciesList() {
-    return await getCurrencies();
+    return this.changeNowService.getCurrencies();
   }
 }

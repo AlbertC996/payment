@@ -31,6 +31,43 @@ tsconfig.build.json : ({
 }
 )
 
+test-changelly.js : (import "dotenv/config";
+import axios from "axios";
+import crypto from "crypto";
+
+const apiKey = "bb7297690c5ff7f6cac751b0ceee9a703e9096fce5f166909a0cf1869bd29557";
+const apiSecret = process.env.CHANGELLY_API_SECRET;
+
+console.log("API Secret loaded?", !!apiSecret);
+
+const message = {
+  jsonrpc: "2.0",
+  id: "test",
+  method: "getCurrencies",
+  params: {}
+};
+
+const sign = crypto
+  .createHmac("sha512", apiSecret)
+  .update(JSON.stringify(message))
+  .digest("hex");
+
+(async () => {
+  try {
+    const res = await axios.post("https://api.changelly.com", message, {
+      headers: {
+        "api-key": apiKey,
+        sign,
+        "Content-type": "application/json"
+      }
+    });
+    console.log("Response:", res.data);
+  } catch (e) {
+    console.error("Error:", e.response?.data || e.message);
+  }
+})();
+)
+
 readme.md : (<p align="center">
   <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
 </p>
@@ -253,8 +290,9 @@ package.json: ({
     "@nestjs/core": "^11.0.1",
     "@nestjs/mongoose": "^11.0.0",
     "@nestjs/platform-express": "^11.0.1",
-    "axios": "^1.11.0",
+    "axios": "^1.12.2",
     "crypto": "^1.0.1",
+    "dotenv": "^17.2.2",
     "mongoose": "^8.0.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
@@ -304,7 +342,7 @@ package.json: ({
 }
 )
 
-npm : (Enter the absolute path where the nvm-windows zip file is extracted/copied to: )
+npm : (Enter the absolute path where the nvm-windows zip file is extracted/copied to:  )
 
 nest-cli.json : ({
   "$schema": "https://json.schemastore.org/nest-cli",
@@ -351,21 +389,20 @@ export default tseslint.config(
   },
 );)
 
-config.example.ts : (// Copy this file to config.ts and fill in your actual values
+config.ts : (// Copy this file to config.ts and fill in your actual values
 export const config = {
   changelly: {
-    privateKey: 'LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSUV2Z0lCQURBTkJna3Foa2lHOXcwQkFRRUZBQVNDQktnd2dnU2tBZ0VBQW9JQkFRRHlHYnluS1RHc1ZzQUEKaVY0VFl0elg2K1NadkhKbW5PaEp4WGJaS1NEQ3RjckpzZlZKRURtL2VqaTlieHlqOFVSWVBhaUxWUzRzaWUxTApVTjRaWkowMk02bFVrcEJjNVN4bHlMaEJ0UExWdTNsUDdyTHJsQjVPbjE4U29qN3RyQlZXVkU0Z2dtZ1BOTzFhCnpJK1lxemc4eEp4UEVzV0VwT2p0QzlQZzM5ZVMxVGxiOUVJQjdBSURQMFhuOE5KT3ZpQ2RqdHFFeGo2alJ3OTIKWVZmMjg2RmtQd2ZKbTgrMzh4ZXVMaGUwbGh2RjRMeW1ncEdEOWRuK3JxVmtyNjJaYXNwRndnenNVZ1FwKzVlVQpOU3ZhNG54TTRac1JOVzVtQnJWaWJWQXpTK2czZVFOeDgvSEJHVk0yOENHaHNNd01uREhHdUpMQXp6em5LRDQwClFtMXJuY3VaQWdNQkFBRUNnZ0VBR2h1cmJBMTF0V09mamc5Q1RXM21hZ1NlNFBOaEZPN0w0QlRDNWRWWkdwWlgKT1p3TzJ5TzhUb2xrTUEyWTlaY1JxMEJ1K2lPaitKcWhNL09UR0FMeEwwU3YrSlpicWlEdXdrVThsWjFwYUtJdwppVzJ3N3RYSTFPcTc2bnNEdFViUEFFSFVNUTVQSVlDd0xoQU1Wa2IwcUJ6OXpFczJjTUVGKzNaQWthb2lDY3Z1CkV5SW1uRzliUzFyWlBrV2JUMnl4ckwybzgvNU5ZbVNjTlJ5YlUvamNOMENPNDdSMjdLc0o4QnVrdGlFRnlrRXYKeVV1eTBPbHA3b0NUNi9lMFVzN1BrbjJsdWJKMzJPejNpOWVNQy9EeVJYaHNUQ0F0WjRFckREUWhCc2RxVlVUMgp4b1l6RlFtTERSS2JLbHFueDVCQW5OdXdZTFk0Tmg3ampDRDgxbndZMXdLQmdRRDRPTDI1bkxzTytnczQ4WmdvCmorQ0hmMHNPYkRnZU1hZFMwRjJOZ015bC8ySjkxbUxNZ3ZzaVJPUTloYlFQMXRrSDQ4MmlmYTQxdkVSWklxelcKb2U3WTFhbDAybmt6eUhsWlFhVzJabTNWck5IaE8wUm9teVdMR1pESVVLSmgyR09OZjh3NDZTZFlXTFBWS2NtbwpPNWRkQnN6czFwaEg4Q3RyS1ppVFVxemwxd0tCZ1FENXIrUkRjWDFqVEgrM0UwSE56YmR2T3N1MnZNYnlFb3FCCjBORm9kYXl3Y2tEMXFrdHg1YUFVY3NhVyt5OStFK2V6elNPcEplUzVnYnN2UjB1Q1IyZElZTklMSnpGZ0lkK0kKMjBKbWRaalBuUldNU050dTRtdmJuV0VodVdPaFZRVjhNZFdvTERySWc5K3JpT3BweFlrSkZqRFM2QW11bDBqNQpzS1p5d2JQTUR3S0JnQTRDamRyVEdNL0FseStRbTBqMnpmSjM0ZEdmbEE5SU9DeDViRDVYWGJXazAzZE15V2pICm44c1FYbDJHbFdJcmV6Wnh5aUo0dTROMjY5aW9GMTlKNW9SQWt2N3djZFRWWk52LzA0MlcvRzRLQWhLWFdNWWEKczZURlBhSEF3MW1JY0I0RmI0NXF3bmkvRU85Z0cyeXVhRjJzeTVZMmlvUE03M1p0ODVtbEdmTWpBb0dCQU1TbwpWdDhQNmpSbHNrbmRydnlMeEtpazVJSi9XU3Fjazk3L081Qk03c0Rpbkd0aHY1NXJ2NU9iZXZLNzBJSTY1MG5rCmp1dlEzcitGZ0lzU1dsUzRMSThEUXl4cHFDZ1JSZUNpNFQrVjY4L0o1NGpnY1lSNmJYMUNEWmprVGFacU1ySEoKQm9FNHBPdjlnaE8yK1BwcURTN00vWk9BRXZBaVUrWGx6cE9nSVI3ZEFvR0JBS200TTR1MjlhOFhnMmJ6ZVIyWQo3eWlTUDI3MGc3TGxXRDdKNXpLdVJMTytxcUtxczV6cEwyU1dReDM0dXJzNzB2SlJSVzBhRlg4MFFQakg3dmJKCmo4ZmJESDNGdjRTelBoRytqSHl1Y0dYWWdXMXhER3NyQVkwSFU4cmNxaStpcXkxQktiNEhpRERiako4cDFTaHAKV05RZHd5Mmt3dzJCRUFmMkQ3QmpEcjVkCi0tLS0tRU5EIFBSSVZBVEUgS0VZLS0tLS0K',
-    publicKey: 'bb7297690c5ff7f6cac751b0ceee9a703e9096fce5f166909a0cf1869bd29557',
-    walletAddress: 'TSh34pfzhJXiBEoKpa4cZ1nmH6Hqm1vTyo',
+    privateKey: process.env.CHANGELLY_API_SECRET || '',
+    publicKey: process.env.CHANGELLY_API_KEY || '',
+    walletAddress: process.env.WALLET_ADDRESS || '',
   },
   database: {
-    mongodbUri: 'mongodb://localhost:27017/payment',
+    mongodbUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/payment',
   },
   server: {
-    port: 3000,
+    port: process.env.PORT || 3000,
   },
 };
-
 )
 
 .prettierrc : ({
@@ -373,9 +410,11 @@ export const config = {
   "trailingComma": "all"
 })
 
-.env : (CHANGELLY_API_KEY=bb7297690c5ff7f6cac751b0ceee9a703e9096fce5f166909a0cf1869bd29557
-CHANGELLY_API_SECRET=LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSUV2Z0lCQURBTkJna3Foa2lHOXcwQkFRRUZBQVNDQktnd2dnU2tBZ0VBQW9JQkFRRHlHYnluS1RHc1ZzQUEKaVY0VFl0elg2K1NadkhKbW5PaEp4WGJaS1NEQ3RjckpzZlZKRURtL2VqaTlieHlqOFVSWVBhaUxWUzRzaWUxTApVTjRaWkowMk02bFVrcEJjNVN4bHlMaEJ0UExWdTNsUDdyTHJsQjVPbjE4U29qN3RyQlZXVkU0Z2dtZ1BOTzFhCnpJK1lxemc4eEp4UEVzV0VwT2p0QzlQZzM5ZVMxVGxiOUVJQjdBSURQMFhuOE5KT3ZpQ2RqdHFFeGo2alJ3OTIKWVZmMjg2RmtQd2ZKbTgrMzh4ZXVMaGUwbGh2RjRMeW1ncEdEOWRuK3JxVmtyNjJaYXNwRndnenNVZ1FwKzVlVQpOU3ZhNG54TTRac1JOVzVtQnJWaWJWQXpTK2czZVFOeDgvSEJHVk0yOENHaHNNd01uREhHdUpMQXp6em5LRDQwClFtMXJuY3VaQWdNQkFBRUNnZ0VBR2h1cmJBMTF0V09mamc5Q1RXM21hZ1NlNFBOaEZPN0w0QlRDNWRWWkdwWlgKT1p3TzJ5TzhUb2xrTUEyWTlaY1JxMEJ1K2lPaitKcWhNL09UR0FMeEwwU3YrSlpicWlEdXdrVThsWjFwYUtJdwppVzJ3N3RYSTFPcTc2bnNEdFViUEFFSFVNUTVQSVlDd0xoQU1Wa2IwcUJ6OXpFczJjTUVGKzNaQWthb2lDY3Z1CkV5SW1uRzliUzFyWlBrV2JUMnl4ckwybzgvNU5ZbVNjTlJ5YlUvamNOMENPNDdSMjdLc0o4QnVrdGlFRnlrRXYKeVV1eTBPbHA3b0NUNi9lMFVzN1BrbjJsdWJKMzJPejNpOWVNQy9EeVJYaHNUQ0F0WjRFckREUWhCc2RxVlVUMgp4b1l6RlFtTERSS2JLbHFueDVCQW5OdXdZTFk0Tmg3ampDRDgxbndZMXdLQmdRRDRPTDI1bkxzTytnczQ4WmdvCmorQ0hmMHNPYkRnZU1hZFMwRjJOZ015bC8ySjkxbUxNZ3ZzaVJPUTloYlFQMXRrSDQ4MmlmYTQxdkVSWklxelcKb2U3WTFhbDAybmt6eUhsWlFhVzJabTNWck5IaE8wUm9teVdMR1pESVVLSmgyR09OZjh3NDZTZFlXTFBWS2NtbwpPNWRkQnN6czFwaEg4Q3RyS1ppVFVxemwxd0tCZ1FENXIrUkRjWDFqVEgrM0UwSE56YmR2T3N1MnZNYnlFb3FCCjBORm9kYXl3Y2tEMXFrdHg1YUFVY3NhVyt5OStFK2V6elNPcEplUzVnYnN2UjB1Q1IyZElZTklMSnpGZ0lkK0kKMjBKbWRaalBuUldNU050dTRtdmJuV0VodVdPaFZRVjhNZFdvTERySWc5K3JpT3BweFlrSkZqRFM2QW11bDBqNQpzS1p5d2JQTUR3S0JnQTRDamRyVEdNL0FseStRbTBqMnpmSjM0ZEdmbEE5SU9DeDViRDVYWGJXazAzZE15V2pICm44c1FYbDJHbFdJcmV6Wnh5aUo0dTROMjY5aW9GMTlKNW9SQWt2N3djZFRWWk52LzA0MlcvRzRLQWhLWFdNWWEKczZURlBhSEF3MW1JY0I0RmI0NXF3bmkvRU85Z0cyeXVhRjJzeTVZMmlvUE03M1p0ODVtbEdmTWpBb0dCQU1TbwpWdDhQNmpSbHNrbmRydnlMeEtpazVJSi9XU3Fjazk3L081Qk03c0Rpbkd0aHY1NXJ2NU9iZXZLNzBJSTY1MG5rCmp1dlEzcitGZ0lzU1dsUzRMSThEUXl4cHFDZ1JSZUNpNFQrVjY4L0o1NGpnY1lSNmJYMUNEWmprVGFacU1ySEoKQm9FNHBPdjlnaE8yK1BwcURTN00vWk9BRXZBaVUrWGx6cE9nSVI3ZEFvR0JBS200TTR1MjlhOFhnMmJ6ZVIyWQo3eWlTUDI3MGc3TGxXRDdKNXpLdVJMTytxcUtxczV6cEwyU1dReDM0dXJzNzB2SlJSVzBhRlg4MFFQakg3dmJKCmo4ZmJESDNGdjRTelBoRytqSHl1Y0dYWWdXMXhER3NyQVkwSFU4cmNxaStpcXkxQktiNEhpRERiako4cDFTaHAKV05RZHd5Mmt3dzJCRUFmMkQ3QmpEcjVkCi0tLS0tRU5EIFBSSVZBVEUgS0VZLS0tLS0K)
-
+.env : (
+CHANGELLY_API_KEY=bb7297690c5ff7f6cac751b0ceee9a703e9096fce5f166909a0cf1869bd29557
+CHANGELLY_API_SECRET=LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSUV2Z0lCQURBTkJna3Foa2lHOXcwQkFRRUZBQVNDQktnd2dnU2tBZ0VBQW9JQkFRRHlHYnluS1RHc1ZzQUEKaVY0VFl0elg2K1NadkhKbW5PaEp4WGJaS1NEQ3RjckpzZlZKRURtL2VqaTlieHlqOFVSWVBhaUxWUzRzaWUxTApVTjRaWkowMk02bFVrcEJjNVN4bHlMaEJ0UExWdTNsUDdyTHJsQjVPbjE4U29qN3RyQlZXVkU0Z2dtZ1BOTzFhCnpJK1lxemc4eEp4UEVzV0VwT2p0QzlQZzM5ZVMxVGxiOUVJQjdBSURQMFhuOE5KT3ZpQ2RqdHFFeGo2alJ3OTIKWVZmMjg2RmtQd2ZKbTgrMzh4ZXVMaGUwbGh2RjRMeW1ncEdEOWRuK3JxVmtyNjJaYXNwRndnenNVZ1FwKzVlVQpOU3ZhNG54TTRac1JOVzVtQnJWaWJWQXpTK2czZVFOeDgvSEJHVk0yOENHaHNNd01uREhHdUpMQXp6em5LRDQwClFtMXJuY3VaQWdNQkFBRUNnZ0VBR2h1cmJBMTF0V09mamc5Q1RXM21hZ1NlNFBOaEZPN0w0QlRDNWRWWkdwWlgKT1p3TzJ5TzhUb2xrTUEyWTlaY1JxMEJ1K2lPaitKcWhNL09UR0FMeEwwU3YrSlpicWlEdXdrVThsWjFwYUtJdwppVzJ3N3RYSTFPcTc2bnNEdFViUEFFSFVNUTVQSVlDd0xoQU1Wa2IwcUJ6OXpFczJjTUVGKzNaQWthb2lDY3Z1CkV5SW1uRzliUzFyWlBrV2JUMnl4ckwybzgvNU5ZbVNjTlJ5YlUvamNOMENPNDdSMjdLc0o4QnVrdGlFRnlrRXYKeVV1eTBPbHA3b0NUNi9lMFVzN1BrbjJsdWJKMzJPejNpOWVNQy9EeVJYaHNUQ0F0WjRFckREUWhCc2RxVlVUMgp4b1l6RlFtTERSS2JLbHFueDVCQW5OdXdZTFk0Tmg3ampDRDgxbndZMXdLQmdRRDRPTDI1bkxzTytnczQ4WmdvCmorQ0hmMHNPYkRnZU1hZFMwRjJOZ015bC8ySjkxbUxNZ3ZzaVJPUTloYlFQMXRrSDQ4MmlmYTQxdkVSWklxelcKb2U3WTFhbDAybmt6eUhsWlFhVzJabTNWck5IaE8wUm9teVdMR1pESVVLSmgyR09OZjh3NDZTZFlXTFBWS2NtbwpPNWRkQnN6czFwaEg4Q3RyS1ppVFVxemwxd0tCZ1FENXIrUkRjWDFqVEgrM0UwSE56YmR2T3N1MnZNYnlFb3FCCjBORm9kYXl3Y2tEMXFrdHg1YUFVY3NhVyt5OStFK2V6elNPcEplUzVnYnN2UjB1Q1IyZElZTklMSnpGZ0lkK0kKMjBKbWRaalBuUldNU050dTRtdmJuV0VodVdPaFZRVjhNZFdvTERySWc5K3JpT3BweFlrSkZqRFM2QW11bDBqNQpzS1p5d2JQTUR3S0JnQTRDamRyVEdNL0FseStRbTBqMnpmSjM0ZEdmbEE5SU9DeDViRDVYWGJXazAzZE15V2pICm44c1FYbDJHbFdJcmV6Wnh5aUo0dTROMjY5aW9GMTlKNW9SQWt2N3djZFRWWk52LzA0MlcvRzRLQWhLWFdNWWEKczZURlBhSEF3MW1JY0I0RmI0NXF3bmkvRU85Z0cyeXVhRjJzeTVZMmlvUE03M1p0ODVtbEdmTWpBb0dCQU1TbwpWdDhQNmpSbHNrbmRydnlMeEtpazVJSi9XU3Fjazk3L081Qk03c0Rpbkd0aHY1NXJ2NU9iZXZLNzBJSTY1MG5rCmp1dlEzcitGZ0lzU1dsUzRMSThEUXl4cHFDZ1JSZUNpNFQrVjY4L0o1NGpnY1lSNmJYMUNEWmprVGFacU1ySEoKQm9FNHBPdjlnaE8yK1BwcURTN00vWk9BRXZBaVUrWGx6cE9nSVI3ZEFvR0JBS200TTR1MjlhOFhnMmJ6ZVIyWQo3eWlTUDI3MGc3TGxXRDdKNXpLdVJMTytxcUtxczV6cEwyU1dReDM0dXJzNzB2SlJSVzBhRlg4MFFQakg3dmJKCmo4ZmJESDNGdjRTelBoRytqSHl1Y0dYWWdXMXhER3NyQVkwSFU4cmNxaStpcXkxQktiNEhpRERiako4cDFTaHAKV05RZHd5Mmt3dzJCRUFmMkQ3QmpEcjVkCi0tLS0tRU5EIFBSSVZBVEUgS0VZLS0tLS0K
+CHANGENOW_API_KEY=59a872881b02ff62c9cd8ed4aa3f67517a7b5530368e6845b3030b7f111cbab2
+)
 test/app.e2e-spec.ts : (import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
@@ -415,11 +454,26 @@ test/jest-e2e.json : ({
 )
 src/changelly/.changelly.service.ts : (import axios from 'axios';
 import * as crypto from 'crypto';
+import {config} from '../../config' // از config.ts که خودت ساختی کلیدها رو می‌گیری
 
-const apiKey = process.env.CHANGELLY_API_KEY;
-const apiSecret = process.env.CHANGELLY_API_SECRET;
 const apiUrl = 'https://api.changelly.com';
+const apiKey = config.changelly.publicKey;
+const apiSecret = config.changelly.privateKey;
 
+// لاگ اولیه برای اطمینان
+console.log('API KEY:', apiKey);
+console.log('API SECRET exists:', !!apiSecret);
+
+// تابع برای ساخت امضا
+function signMessage(message: object, privateKey: string) {
+  const msg = JSON.stringify(message);
+  return crypto
+    .createHmac('sha512', privateKey)
+    .update(msg)
+    .digest('hex');
+}
+
+// گرفتن لیست ارزها
 export async function getCurrencies() {
   const message = {
     jsonrpc: '2.0',
@@ -428,10 +482,7 @@ export async function getCurrencies() {
     params: {}
   };
 
-  const sign = crypto
-    .createHmac('sha512', apiSecret as string)
-    .update(JSON.stringify(message))
-    .digest('hex');
+  const sign = signMessage(message, apiSecret);
 
   const headers = {
     'api-key': apiKey,
@@ -439,10 +490,119 @@ export async function getCurrencies() {
     'Content-type': 'application/json'
   };
 
-  const { data } = await axios.post(apiUrl, message, { headers });
-  return data;
-})
+  try {
+    console.log('Message:', JSON.stringify(message));
+    console.log('Headers:', headers);
+
+    const { data } = await axios.post(apiUrl, message, { headers });
+    return data;
+  } catch (error: any) {
+    console.error('Changelly API error:', error.response?.data || error.message);
+    throw new Error('Changelly API request failed');
+  }
+}
+)
 src/changelly/estimate.ts : ()
+src/changelly/try-changelly.js : (// try-changelly.js
+// Node script to try several secret variants and call changelly getCurrencies
+// usage: node try-changelly.js
+
+require('dotenv').config();
+const axios = require('axios');
+const crypto = require('crypto');
+
+const apiUrl = 'https://api.changelly.com';
+const apiKey = process.env.CHANGELLY_API_KEY;
+const apiSecret = process.env.CHANGELLY_API_SECRET;
+
+if (!apiKey || !apiSecret) {
+  console.error('Please set CHANGELLY_API_KEY and CHANGELLY_API_SECRET in .env');
+  process.exit(1);
+}
+
+const message = { jsonrpc: '2.0', id: Date.now().toString(), method: 'getCurrencies', params: {} };
+
+function hmacHex(key) {
+  return crypto.createHmac('sha512', key).update(JSON.stringify(message)).digest('hex');
+}
+
+function short(x){
+  if(!x) return '';
+  const s = String(x);
+  return s.length>12 ? s.slice(0,6)+'...'+s.slice(-6) : s;
+}
+
+const candidates = [
+  { name: 'raw', key: apiSecret },
+  { name: 'trim', key: apiSecret.trim() },
+  { name: 'utf8-buffer', key: Buffer.from(apiSecret, 'utf8') },
+];
+
+try {
+  // try base64 decode directly
+  candidates.push({ name: 'base64-decoded', key: Buffer.from(apiSecret, 'base64') });
+} catch(e){
+  // ignore
+}
+
+// try PEM strip (remove BEGIN/END and whitespace) then base64 decode
+const pemStripped = apiSecret.replace(/-----BEGIN[^-]+-----/g, '')
+                            .replace(/-----END[^-]+-----/g, '')
+                            .replace(/[\r\n\s]/g, '');
+if (pemStripped && pemStripped.length>0) {
+  try {
+    candidates.push({ name: 'pem-strip-base64-decoded', key: Buffer.from(pemStripped, 'base64') });
+    candidates.push({ name: 'pem-strip-raw', key: pemStripped }); // raw stripped
+  } catch(e){}
+}
+
+// also try removing newlines only
+candidates.push({ name: 'remove-newlines', key: apiSecret.replace(/[\r\n]/g,'') });
+
+// deduplicate by name
+const tried = new Set();
+(async () => {
+  console.log('Starting attempts:', candidates.map(c=>c.name).join(', '));
+  for (const c of candidates) {
+    if (tried.has(c.name)) continue;
+    tried.add(c.name);
+    try {
+      const sign = hmacHex(c.key);
+      console.log('\n---');
+      console.log('Attempt:', c.name);
+      console.log('Secret preview:', short(String(c.key)));
+      console.log('Computed sign:', sign);
+
+      const headers = {
+        'api-key': apiKey,
+        sign,
+        'Content-Type': 'application/json'
+      };
+
+      const resp = await axios.post(apiUrl, message, {
+        headers,
+        timeout: 15000
+      });
+
+      console.log('HTTP', resp.status, 'OK — response data:');
+      console.log(JSON.stringify(resp.data, null, 2));
+      console.log('=> SUCCESS with method:', c.name);
+      process.exit(0);
+    } catch (err) {
+      const status = err.response?.status;
+      const data = err.response?.data;
+      console.log('HTTP ERROR:', status || err.code || 'ERR');
+      if (data) console.log('Response body:', data);
+      else console.log('Error message:', err.message);
+      // continue to next candidate
+    }
+  }
+  console.log('\nAll attempts finished — none returned success (200).');
+  console.log('If all attempts return Unauthorized, please ask Changelly to confirm the exact API SECRET format for this account.');
+  process.exit(1);
+})();
+)
+
 src/currencies/schemas/transaction.schema.ts : (import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 
@@ -517,7 +677,8 @@ export class Transaction {
   updatedAt?: Date;
 }
 
-export const TransactionSchema = SchemaFactory.createForClass(Transaction); )
+export const TransactionSchema = SchemaFactory.createForClass(Transaction); 
+)
 
 src/currencies/currencies.controller.ts : (import { Controller, Get, Post, Body, Param, HttpException, HttpStatus, Query } from '@nestjs/common';
 import { CurrenciesService, Currency, PaymentMethod } from './currencies.service';
@@ -696,7 +857,7 @@ src/currencies/currencies.service.ts : (import { Injectable, Logger } from '@nes
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { ChangellyCurrency, ChangellyFiatClient } from '@changelly/fiat-api-sdk-node';
-import { config } from '../../config.example';
+import { config } from '../../config';
 import { Transaction, TransactionDocument } from './schemas/transaction.schema';
 
 export interface Currency {
@@ -1206,17 +1367,23 @@ export class AppController {
   constructor(private readonly appService: AppService) {}
 
   @Get()
-  getHello() {
+  getHello(): string {
     return this.appService.getHello();
   }
-})
+
+  @Get('currencies')
+  getCurrencies() {
+    return this.appService.getCurrenciesList();
+  }
+}
+)
 
 src/app.module.ts : (import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CurrenciesModule } from './currencies/currencies.module';
-import { config } from '../config.example';
+import { config } from '../config';
 
 @Module({
   imports: [
@@ -1234,13 +1401,18 @@ import { getCurrencies } from './changelly/changelly.service';
 
 @Injectable()
 export class AppService {
-  async getHello(): Promise<any> {
-    const result = await getCurrencies();
-    return result;
+  getHello(): string {
+    return 'Hello World!';
+  }
+
+  async getCurrenciesList() {
+    return await getCurrencies();
   }
 })
 
-src/main.ts : (import { NestFactory } from '@nestjs/core';
+src/main.ts : (import * as dotenv from 'dotenv';
+dotenv.config();
+import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
