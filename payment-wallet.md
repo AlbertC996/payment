@@ -190,9 +190,19 @@ import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ChangeNowModule } from './changenow/changenow.module';
+import { MongooseModule } from '@nestjs/mongoose';
+import { TransactionsModule } from './transactions/transactions.module';
+import { config } from '../config';
 
 @Module({
-  imports: [ChangeNowModule],
+  imports: [
+    MongooseModule.forRoot(process.env.MONGODB_URI || config.database.mongodbUri, {
+      // optional mongoose options
+      autoIndex: true,
+    }),
+    ChangeNowModule,
+    TransactionsModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
@@ -282,7 +292,6 @@ export class CurrenciesController {
 
 )
 3. currencies.service.ts => (
-// payment/src/currencies/currencies.service.ts
 import { Injectable } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
@@ -295,7 +304,7 @@ export class CurrenciesService {
     try {
       const response = await firstValueFrom(
         this.httpService.get(
-          'https://api.changenow.io/v2/currencies?active=true',
+          'https://api.changenow.io/v2/exchange/currencies',
           {
             headers: {
               'x-changenow-api-key': process.env.CHANGENOW_API_KEY,
@@ -331,8 +340,8 @@ export class Transaction {
   @Prop({ required: true })
   externalUserId: string;
 
-  @Prop({ required: true })
-  externalOrderId: string;
+  @Prop({ required: false })
+  externalOrderId?: string;
 
   @Prop({ required: true })
   providerCode: string;
@@ -400,8 +409,15 @@ export const TransactionSchema = SchemaFactory.createForClass(Transaction);
 import { Module } from '@nestjs/common';
 import { ChangeNowController } from './changenow.controller';
 import { ChangeNowService } from './changenow.service';
+import { MongooseModule } from '@nestjs/mongoose';
+import { Transaction, TransactionSchema } from '../currencies/schemas/transaction.schema';
+import { HttpModule } from '@nestjs/axios';
 
 @Module({
+  imports: [
+    HttpModule,
+    MongooseModule.forFeature([{ name: Transaction.name, schema: TransactionSchema }]),
+  ],
   controllers: [ChangeNowController],
   providers: [ChangeNowService],
   exports: [ChangeNowService],
@@ -410,80 +426,132 @@ export class ChangeNowModule {}
 
 )
 2. changenow.controller.ts => (
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  HttpException,
-  HttpStatus,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Logger } from '@nestjs/common';
 import { ChangeNowService } from './changenow.service';
 
 @Controller('changenow')
 export class ChangeNowController {
-  constructor(private readonly service: ChangeNowService) {}
+  private readonly logger = new Logger(ChangeNowController.name);
+
+  constructor(private readonly changeNowService: ChangeNowService) {}
 
   @Get('currencies')
-  async currencies() {
+  async getCurrencies() {
     try {
-      return await this.service.getCurrencies();
+      return await this.changeNowService.getCurrencies();
     } catch (err: any) {
-      throw new HttpException({ error: err.message }, HttpStatus.BAD_GATEWAY);
+      this.logger.error('❌ getCurrencies error', err.response?.data || err.message);
+      return { error: 'Failed to fetch currencies' };
     }
   }
 
   @Post('create-order')
-  async createOrder(@Body() body: any) {
+  async createOrder(@Body() payload: any) {
+    console.log(payload);
     try {
-      return await this.service.createOrder(body);
+      return await this.changeNowService.createOrder(payload);
     } catch (err: any) {
-      const message = err?.response?.data || err.message || 'Unknown';
-      throw new HttpException({ error: message }, HttpStatus.BAD_GATEWAY);
+      this.logger.error('❌ createOrder error', err.response?.data || err.message);
+      return { error: 'Failed to create order', details: err.response?.data || err.message };
     }
   }
 }
 
 )
 3. changenow.service.ts => (
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { Transaction, TransactionDocument } from '../currencies/schemas/transaction.schema';
 
 @Injectable()
 export class ChangeNowService {
+  private readonly logger = new Logger(ChangeNowService.name);
   private apiKey = process.env.CHANGENOW_API_KEY || '';
 
+  constructor(
+    @InjectModel(Transaction.name) private transactionModel: Model<TransactionDocument>,
+  ) {}
+
   async getCurrencies() {
-    const url = 'https://api.changenow.io/v2/currencies?active=true';
-    const res = await axios.get(url, {
-      headers: {
-        'x-changenow-api-key': this.apiKey,
-        Accept: 'application/json',
-      },
-      timeout: 15000,
-    });
-    return res.data;
+    try {
+      const url = 'https://api.changenow.io/v2/exchange/currencies';
+      const res = await axios.get(url, {
+        headers: { 'x-changenow-api-key': this.apiKey },
+        timeout: 30000,
+      });
+      return res.data;
+    } catch (error: any) {
+      this.logger.error('❌ getCurrencies error', error.response?.data || error.message);
+      throw new Error('Failed to fetch currencies from ChangeNOW');
+    }
   }
 
   async createOrder(payload: any) {
-    const url = 'https://api.changenow.io/v2/orders';
+    const url = 'https://api.changenow.io/v2/exchange/fiat-estimate';
     const body = {
-      from: payload.from,
-      to: payload.to,
-      amount: payload.amount,
-      address: payload.address,
-      extraId: payload.extraId || undefined,
+      from: payload.from || 'usd',
+      to: payload.to || 'usdt',
+      amount: payload.amount || '100',
+      address: payload.address || process.env.WALLET_ADDRESS,
+      externalUserId: payload.externalUserId || 'test-user-1',
+      country: payload.country || 'US',
+      paymentMethod: payload.paymentMethod || 'card',
     };
 
-    const res = await axios.post(url, body, {
-      headers: {
-        'x-changenow-api-key': this.apiKey,
-        'Content-Type': 'application/json',
-      },
-      timeout: 20000,
-    });
+    try {
+      const res = await axios.post(url, body, {
+        headers: {
+          'x-changenow-api-key': this.apiKey,
+          'Content-Type': 'application/json',
+        },
+        timeout: 60000,
+      });
 
-    return res.data;
+      const respData = res.data;
+
+      const tx = new this.transactionModel({
+        orderId: respData.id || `cn_${Date.now()}`,
+        externalUserId: body.externalUserId,
+        externalOrderId: respData.id || null,
+        providerCode: 'changenow',
+        currencyFrom: body.from,
+        currencyTo: body.to,
+        amountFrom: body.amount,
+        country: body.country,
+        state: respData.status || 'created',
+        walletAddress: body.address,
+        paymentMethod: body.paymentMethod,
+        metadata: respData,
+        status: respData.status || 'pending',
+      });
+
+      await tx.save();
+      return { changenow: respData, savedTransactionId: tx._id };
+    } catch (error: any) {
+      this.logger.error('❌ createOrder error', error.response?.data || error.message);
+
+      const errTx = new this.transactionModel({
+        orderId: `failed_${Date.now()}`,
+        externalUserId: payload.externalUserId || 'unknown',
+        providerCode: 'changenow',
+        currencyFrom: payload.from,
+        currencyTo: payload.to,
+        amountFrom: payload.amount?.toString() || '0',
+        country: payload.country || 'unknown',
+        state: 'failed',
+        walletAddress: payload.address || process.env.WALLET_ADDRESS,
+        paymentMethod: payload.paymentMethod || 'card',
+        status: 'failed',
+        errorType: error.response?.status || 'unknown',
+        errorMessage: error.response?.data ? JSON.stringify(error.response.data) : error.message,
+      });
+
+      await errTx.save();
+
+      throw error;
+    }
   }
 }
 

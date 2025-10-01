@@ -1,33 +1,30 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  HttpException,
-  HttpStatus,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Logger } from '@nestjs/common';
 import { ChangeNowService } from './changenow.service';
 
 @Controller('changenow')
 export class ChangeNowController {
-  constructor(private readonly service: ChangeNowService) {}
+  private readonly logger = new Logger(ChangeNowController.name);
+
+  constructor(private readonly changeNowService: ChangeNowService) {}
 
   @Get('currencies')
-  async currencies() {
+  async getCurrencies() {
     try {
-      return await this.service.getCurrencies();
+      return await this.changeNowService.getCurrencies();
     } catch (err: any) {
-      throw new HttpException({ error: err.message }, HttpStatus.BAD_GATEWAY);
+      this.logger.error('❌ getCurrencies error', err.response?.data || err.message);
+      return { error: 'Failed to fetch currencies' };
     }
   }
 
   @Post('create-order')
-  async createOrder(@Body() body: any) {
+  async createOrder(@Body() payload: any) {
+    console.log(payload);
     try {
-      return await this.service.createOrder(body);
+      return await this.changeNowService.createOrder(payload);
     } catch (err: any) {
-      const message = err?.response?.data || err.message || 'Unknown';
-      throw new HttpException({ error: message }, HttpStatus.BAD_GATEWAY);
+      this.logger.error('❌ createOrder error', err.response?.data || err.message);
+      return { error: 'Failed to create order', details: err.response?.data || err.message };
     }
   }
 }

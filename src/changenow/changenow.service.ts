@@ -1,40 +1,69 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import {
+  Transaction,
+  TransactionDocument,
+} from '../currencies/schemas/transaction.schema';
 
 @Injectable()
 export class ChangeNowService {
+  private readonly logger = new Logger(ChangeNowService.name);
   private apiKey = process.env.CHANGENOW_API_KEY || '';
 
+  constructor(
+    @InjectModel(Transaction.name)
+    private transactionModel: Model<TransactionDocument>,
+  ) {}
+
   async getCurrencies() {
-    const url = 'https://api.changenow.io/v2/currencies?active=true';
-    const res = await axios.get(url, {
-      headers: {
-        'x-changenow-api-key': this.apiKey,
-        Accept: 'application/json',
-      },
-      timeout: 15000,
-    });
-    return res.data;
+    try {
+      const url = 'https://api.changenow.io/v2/exchange/currencies';
+      const res = await axios.get(url, {
+        headers: { 'x-changenow-api-key': this.apiKey },
+        timeout: 30000,
+      });
+      return res.data;
+    } catch (error: any) {
+      this.logger.error(
+        '❌ getCurrencies error',
+        error.response?.data || error.message,
+      );
+      throw new Error('Failed to fetch currencies from ChangeNOW');
+    }
   }
 
   async createOrder(payload: any) {
-    const url = 'https://api.changenow.io/v2/orders';
+    const url = 'https://api.changenow.io/v2/exchange';
+
     const body = {
-      from: payload.from,
-      to: payload.to,
-      amount: payload.amount,
-      address: payload.address,
-      extraId: payload.extraId || undefined,
+      fromCurrency: payload.from || 'usd',
+      toCurrency: payload.to || 'usdt',
+      fromAmount: payload.amount || 100,
+      address: payload.address || process.env.WALLET_ADDRESS,
+
+      // 👇 اضافه شد
+      toNetwork: payload.toNetwork || 'tron', // برای USDT-TRC20
+      fromNetwork: payload.fromNetwork || 'visa', // برای پرداخت با کارت یا بانک
     };
 
-    const res = await axios.post(url, body, {
-      headers: {
-        'x-changenow-api-key': this.apiKey,
-        'Content-Type': 'application/json',
-      },
-      timeout: 20000,
-    });
+    try {
+      const res = await axios.post(url, body, {
+        headers: {
+          'x-changenow-api-key': this.apiKey,
+          'Content-Type': 'application/json',
+        },
+        timeout: 60000,
+      });
 
-    return res.data;
+      return res.data;
+    } catch (error: any) {
+      this.logger.error(
+        '❌ createOrder error',
+        error.response?.data || error.message,
+      );
+      throw error;
+    }
   }
 }

@@ -11,8 +11,8 @@ export class Transaction {
   @Prop({ required: true })
   externalUserId: string;
 
-  @Prop({ required: true })
-  externalOrderId: string;
+  @Prop({ required: false })
+  externalOrderId?: string;
 
   @Prop({ required: true })
   providerCode: string;
