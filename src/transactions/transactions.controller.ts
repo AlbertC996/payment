@@ -1,18 +1,30 @@
-import { Controller, Get, Param, NotFoundException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { Transaction, TransactionDocument } from '../currencies/schemas/transaction.schema';
+import { Controller, Get, Post, Body, Param, Logger } from '@nestjs/common';
+import { TransactionsService } from './transactions.service';
 
 @Controller('transactions')
 export class TransactionsController {
-  constructor(
-    @InjectModel(Transaction.name) private transactionModel: Model<TransactionDocument>,
-  ) {}
+  private readonly logger = new Logger(TransactionsController.name);
+
+  constructor(private readonly transactionsService: TransactionsService) {}
 
   @Get(':id')
-  async getOne(@Param('id') id: string) {
-    const tx = await this.transactionModel.findById(id).lean();
-    if (!tx) throw new NotFoundException('Transaction not found');
-    return tx;
+  async getTransaction(@Param('id') id: string) {
+    try {
+      return await this.transactionsService.getTransactionById(id);
+    } catch (err: any) {
+      this.logger.error('❌ getTransaction error', err.message);
+      return { error: 'Failed to fetch transaction' };
+    }
+  }
+
+  @Post('webhook')
+  async handleWebhook(@Body() payload: any) {
+    try {
+      this.logger.log('📥 Received webhook from ChangeNOW');
+      return await this.transactionsService.updateTransactionStatus(payload);
+    } catch (err: any) {
+      this.logger.error('❌ handleWebhook error', err.message);
+      return { error: 'Failed to process webhook' };
+    }
   }
 }

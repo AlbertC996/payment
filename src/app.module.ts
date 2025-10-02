@@ -8,10 +8,13 @@ import { config } from '../config';
 
 @Module({
   imports: [
-    MongooseModule.forRoot(process.env.MONGODB_URI || config.database.mongodbUri, {
-      // optional mongoose options
-      autoIndex: true,
-    }),
+    MongooseModule.forRoot(
+      process.env.MONGODB_URI || config.database.mongodbUri,
+      {
+        // optional mongoose options
+        autoIndex: true,
+      },
+    ),
     ChangeNowModule,
     TransactionsModule,
   ],

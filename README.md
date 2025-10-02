@@ -112,21 +112,27 @@ This is a NestJS backend service that integrates with the Changelly API to provi
 ## API Endpoints
 
 ### Get All Currencies
+
 ```
 GET /currencies
 ```
+
 Returns all available currencies with their details.
 
 ### Get Currencies by Type
+
 ```
 GET /currencies/type/:type
 ```
+
 Filter currencies by type. Valid types: `fiat` or `crypto`
 
 ### Get Currency by Ticker
+
 ```
 GET /currencies/ticker/:ticker
 ```
+
 Get specific currency details by its ticker symbol.
 
 ## Currency Data Structure
@@ -151,21 +157,24 @@ Each currency object contains:
 ## Setup
 
 1. Install dependencies:
+
 ```bash
 npm install
 ```
 
 2. Copy `config.example.ts` to `config.ts` and add your Changelly API credentials:
+
 ```typescript
 export const config = {
   changelly: {
     privateKey: 'your-private-key',
-    publicKey: 'your-public-key'
-  }
+    publicKey: 'your-public-key',
+  },
 };
 ```
 
 3. Start the development server:
+
 ```bash
 npm run start:dev
 ```
@@ -182,6 +191,7 @@ The frontend Angular application is configured to communicate with this API. Mak
 ## Error Handling
 
 The API includes comprehensive error handling:
+
 - Invalid currency types return 400 Bad Request
 - API failures return 500 Internal Server Error
 - Fallback currency data is provided when Changelly API is unavailable

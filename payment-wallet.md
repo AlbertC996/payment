@@ -1,7 +1,7 @@
 ### G:\B\AA-Cloned-Projects\payment-project\payment\👇
 1. .env => (
 CHANGENOW_API_KEY=59a872881b02ff62c9cd8ed4aa3f67517a7b5530368e6845b3030b7f111cbab2
-WALLET_ADDRESS=YourTestBestwalletAddressHere
+WALLET_ADDRESS=YOUR_REAL_WALLET_ADDRESS_HERE
 MONGODB_URI=mongodb://localhost:27017/payment
 PORT=3000
 NGROK_URL=https://lakiesha-nontautomeric-awestruckly.ngrok-free.dev
@@ -11,6 +11,7 @@ NGROK_URL=https://lakiesha-nontautomeric-awestruckly.ngrok-free.dev
   "singleQuote": true,
   "trailingComma": "all"
 }
+
 )
 3. config.ts => (
 // Copy this file to config.ts and fill in your actual values
@@ -119,30 +120,25 @@ export const config = {
 6. tsconfig.json => (
 {
   "compilerOptions": {
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
-    "resolvePackageJsonExports": true,
-    "esModuleInterop": true,
-    "isolatedModules": true,
+    "module": "commonjs",
     "declaration": true,
     "removeComments": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
-    "target": "ES2023",
+    "target": "ES2021",
     "sourceMap": true,
     "outDir": "./dist",
     "baseUrl": "./",
     "incremental": true,
     "skipLibCheck": true,
-    "strictNullChecks": true,
-    "forceConsistentCasingInFileNames": true,
+    "strictNullChecks": false,
     "noImplicitAny": false,
     "strictBindCallApply": false,
+    "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false
   }
 }
-
 )
 ### G:\B\AA-Cloned-Projects\payment-project\payment\src\👇
 1. main.ts => (
@@ -152,36 +148,37 @@ dotenv.config();
 
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { join } from 'path';
-import { NestExpressApplication } from '@nestjs/platform-express';
-import express, { Request, Response } from 'express';
+import { ChangeNowService } from './changenow/changenow.service';
+import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create(AppModule);
 
+  // Enable CORS for the Next.js frontend
   app.enableCors({
-    origin: true,
+    origin: 'http://localhost:3001', // Allow requests from Next.js app
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
 
-  const publicPath = join(process.cwd(), 'public');
-  app.useStaticAssets(publicPath);
-
-  const server = app.getHttpAdapter().getInstance() as express.Application;
-  server.use((req: Request, res: Response, next) => {
-    if (req.path.startsWith('/api') || req.path.startsWith('/changenow')) {
-      return next(); // API routes → Nest
-    }
-    res.sendFile(join(publicPath, 'index.html'), (err) => {
-      if (err) next(err);
-    });
-  });
+  // Use a global validation pipe
+  app.useGlobalPipes(new ValidationPipe());
 
   const port = process.env.PORT || 3000;
   await app.listen(port);
-  console.log(`Application is running on: http://localhost:${port}`);
+  console.log(`Backend API is running on: http://localhost:${port}`);
+
+  // Set the webhook after the app starts
+  const changeNowService = app.get(ChangeNowService);
+  const ngrokUrl = process.env.NGROK_URL || `http://localhost:${port}`;
+  try {
+    await changeNowService.setWebhook(`${ngrokUrl}/transactions/webhook`);
+    console.log(`Webhook successfully set to ${ngrokUrl}/transactions/webhook`);
+  } catch (error) {
+    console.error('Failed to set webhook:', error.message);
+  }
 }
+
 bootstrap();
 
 )
@@ -196,10 +193,13 @@ import { config } from '../config';
 
 @Module({
   imports: [
-    MongooseModule.forRoot(process.env.MONGODB_URI || config.database.mongodbUri, {
-      // optional mongoose options
-      autoIndex: true,
-    }),
+    MongooseModule.forRoot(
+      process.env.MONGODB_URI || config.database.mongodbUri,
+      {
+        // optional mongoose options
+        autoIndex: true,
+      },
+    ),
     ChangeNowModule,
     TransactionsModule,
   ],
@@ -410,13 +410,18 @@ import { Module } from '@nestjs/common';
 import { ChangeNowController } from './changenow.controller';
 import { ChangeNowService } from './changenow.service';
 import { MongooseModule } from '@nestjs/mongoose';
-import { Transaction, TransactionSchema } from '../currencies/schemas/transaction.schema';
+import {
+  Transaction,
+  TransactionSchema,
+} from '../currencies/schemas/transaction.schema';
 import { HttpModule } from '@nestjs/axios';
 
 @Module({
   imports: [
     HttpModule,
-    MongooseModule.forFeature([{ name: Transaction.name, schema: TransactionSchema }]),
+    MongooseModule.forFeature([
+      { name: Transaction.name, schema: TransactionSchema },
+    ]),
   ],
   controllers: [ChangeNowController],
   providers: [ChangeNowService],
@@ -440,19 +445,49 @@ export class ChangeNowController {
     try {
       return await this.changeNowService.getCurrencies();
     } catch (err: any) {
-      this.logger.error('❌ getCurrencies error', err.response?.data || err.message);
+      this.logger.error(
+        'getCurrencies error',
+        err.response?.data || err.message,
+      );
       return { error: 'Failed to fetch currencies' };
+    }
+  }
+
+  @Post('set-webhook')
+  async setWebhook(@Body() payload: { url: string }) {
+    try {
+      return await this.changeNowService.setWebhook(payload.url);
+    } catch (err: any) {
+      this.logger.error('setWebhook error', err.response?.data || err.message);
+      return {
+        error: 'Failed to set webhook',
+        details: err.response?.data || err.message,
+      };
     }
   }
 
   @Post('create-order')
   async createOrder(@Body() payload: any) {
-    console.log(payload);
     try {
-      return await this.changeNowService.createOrder(payload);
+      const result = await this.changeNowService.createOrder(payload);
+
+      if (result.payUrl) {
+        return {
+          success: true,
+          payUrl: result.payUrl,
+          transactionId: result.savedTransactionId,
+          message: 'Please redirect to the payment page',
+        };
+      }
+
+      return result;
     } catch (err: any) {
-      this.logger.error('❌ createOrder error', err.response?.data || err.message);
-      return { error: 'Failed to create order', details: err.response?.data || err.message };
+      this.logger.error('createOrder error', err.response?.data || err.message);
+      return {
+        success: false,
+        error: 'Failed to create order',
+        details: err.response?.data || err.message,
+      };
     }
   }
 }
@@ -463,15 +498,19 @@ import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { Transaction, TransactionDocument } from '../currencies/schemas/transaction.schema';
+import {
+  Transaction,
+  TransactionDocument,
+} from '../currencies/schemas/transaction.schema';
 
 @Injectable()
 export class ChangeNowService {
   private readonly logger = new Logger(ChangeNowService.name);
-  private apiKey = process.env.CHANGENOW_API_KEY || '';
+  private readonly apiKey = process.env.CHANGENOW_API_KEY;
 
   constructor(
-    @InjectModel(Transaction.name) private transactionModel: Model<TransactionDocument>,
+    @InjectModel(Transaction.name)
+    private transactionModel: Model<TransactionDocument>,
   ) {}
 
   async getCurrencies() {
@@ -483,16 +522,20 @@ export class ChangeNowService {
       });
       return res.data;
     } catch (error: any) {
-      this.logger.error('❌ getCurrencies error', error.response?.data || error.message);
+      this.logger.error(
+        'Failed to fetch currencies from ChangeNOW',
+        error.response?.data || error.message,
+      );
       throw new Error('Failed to fetch currencies from ChangeNOW');
     }
   }
 
   async createOrder(payload: any) {
-    const url = 'https://api.changenow.io/v2/exchange/fiat-estimate';
+    const url = 'https://api.changenow.io/v2/exchange/fiat';
+
     const body = {
-      from: payload.from || 'usd',
-      to: payload.to || 'usdt',
+      from: payload.from || 'USD',
+      to: payload.to || 'USDT',
       amount: payload.amount || '100',
       address: payload.address || process.env.WALLET_ADDRESS,
       externalUserId: payload.externalUserId || 'test-user-1',
@@ -511,6 +554,7 @@ export class ChangeNowService {
 
       const respData = res.data;
 
+      // Save transaction to the database
       const tx = new this.transactionModel({
         orderId: respData.id || `cn_${Date.now()}`,
         externalUserId: body.externalUserId,
@@ -528,10 +572,23 @@ export class ChangeNowService {
       });
 
       await tx.save();
-      return { changenow: respData, savedTransactionId: tx._id };
-    } catch (error: any) {
-      this.logger.error('❌ createOrder error', error.response?.data || error.message);
 
+      // Extract payment URL
+      const payUrl =
+        respData.payUrl || respData.redirectUrl || respData.checkoutUrl;
+
+      return {
+        changenow: respData,
+        savedTransactionId: tx._id,
+        payUrl: payUrl,
+      };
+    } catch (error: any) {
+      this.logger.error(
+        'Failed to create order with ChangeNOW',
+        error.response?.data || error.message,
+      );
+
+      // Save failed transaction
       const errTx = new this.transactionModel({
         orderId: `failed_${Date.now()}`,
         externalUserId: payload.externalUserId || 'unknown',
@@ -545,13 +602,147 @@ export class ChangeNowService {
         paymentMethod: payload.paymentMethod || 'card',
         status: 'failed',
         errorType: error.response?.status || 'unknown',
-        errorMessage: error.response?.data ? JSON.stringify(error.response.data) : error.message,
+        errorMessage: error.response?.data
+          ? JSON.stringify(error.response.data)
+          : error.message,
       });
 
       await errTx.save();
 
       throw error;
     }
+  }
+
+  async setWebhook(url: string) {
+    try {
+      const response = await axios.post(
+        'https://api.changenow.io/v2/exchange/webhook',
+        { url },
+        {
+          headers: {
+            'x-changenow-api-key': this.apiKey,
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+
+      this.logger.log(`Webhook successfully set to ${url}`);
+      return response.data;
+    } catch (error: any) {
+      this.logger.error(
+        'Failed to set ChangeNOW webhook',
+        error.response?.data || error.message,
+      );
+      throw new Error('Failed to set webhook');
+    }
+  }
+}
+
+)
+### G:\B\AA-Cloned-Projects\payment-project\payment\src\transactions\👇
+1. transactions.module.ts => (
+import { Module } from '@nestjs/common';
+import { TransactionsController } from './transactions.controller';
+import { TransactionsService } from './transactions.service';
+import { MongooseModule } from '@nestjs/mongoose';
+import {
+  Transaction,
+  TransactionSchema,
+} from '../currencies/schemas/transaction.schema';
+
+@Module({
+  imports: [
+    MongooseModule.forFeature([
+      { name: Transaction.name, schema: TransactionSchema },
+    ]),
+  ],
+  controllers: [TransactionsController],
+  providers: [TransactionsService],
+  exports: [TransactionsService],
+})
+export class TransactionsModule {}
+
+)
+2. transactions.controller.ts => (
+import { Controller, Get, Post, Body, Param, Logger } from '@nestjs/common';
+import { TransactionsService } from './transactions.service';
+
+@Controller('transactions')
+export class TransactionsController {
+  private readonly logger = new Logger(TransactionsController.name);
+
+  constructor(private readonly transactionsService: TransactionsService) {}
+
+  @Get(':id')
+  async getTransaction(@Param('id') id: string) {
+    try {
+      return await this.transactionsService.getTransactionById(id);
+    } catch (err: any) {
+      this.logger.error('❌ getTransaction error', err.message);
+      return { error: 'Failed to fetch transaction' };
+    }
+  }
+
+  @Post('webhook')
+  async handleWebhook(@Body() payload: any) {
+    try {
+      this.logger.log('📥 Received webhook from ChangeNOW');
+      return await this.transactionsService.updateTransactionStatus(payload);
+    } catch (err: any) {
+      this.logger.error('❌ handleWebhook error', err.message);
+      return { error: 'Failed to process webhook' };
+    }
+  }
+}
+
+)
+3. transactions.service.ts => (
+import { Injectable, Logger } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import {
+  Transaction,
+  TransactionDocument,
+} from '../currencies/schemas/transaction.schema';
+
+@Injectable()
+export class TransactionsService {
+  private readonly logger = new Logger(TransactionsService.name);
+
+  constructor(
+    @InjectModel(Transaction.name)
+    private transactionModel: Model<TransactionDocument>,
+  ) {}
+
+  async getTransactionById(id: string) {
+    return this.transactionModel.findById(id).exec();
+  }
+
+  async updateTransactionStatus(payload: any) {
+    const { id, status } = payload;
+
+    this.logger.log(`Updating transaction ${id} status to ${status}`);
+
+    const transaction = await this.transactionModel
+      .findOne({
+        externalOrderId: id,
+      })
+      .exec();
+
+    if (!transaction) {
+      this.logger.warn(`Transaction with externalOrderId ${id} not found`);
+      return { success: false, message: 'Transaction not found' };
+    }
+
+    transaction.status = status;
+    transaction.state = status;
+    transaction.metadata = { ...transaction.metadata, ...payload };
+
+    await transaction.save();
+
+    this.logger.log(`Transaction ${id} updated successfully`);
+
+    return { success: true, message: 'Transaction updated' };
   }
 }
 
