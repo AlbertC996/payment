@@ -1,5 +1,13 @@
-import { Controller, Get, Post, Body, Logger } from '@nestjs/common';
-import { ChangeNowService } from './changenow.service';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Logger,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
+import { ChangeNowService, CreateOrderDto } from './changenow.service';
 
 @Controller('changenow')
 export class ChangeNowController {
@@ -10,50 +18,88 @@ export class ChangeNowController {
   @Get('currencies')
   async getCurrencies() {
     try {
-      return await this.changeNowService.getCurrencies();
-    } catch (err: any) {
-      this.logger.error(
-        'getCurrencies error',
-        err.response?.data || err.message,
+      this.logger.log('📥 Fetching currencies list');
+      const currencies = await this.changeNowService.getCurrencies();
+      return {
+        success: true,
+        data: currencies,
+        count: currencies.length,
+      };
+    } catch (error: any) {
+      this.logger.error('❌ getCurrencies error', error.message);
+      throw new HttpException(
+        {
+          success: false,
+          error: 'Failed to fetch currencies',
+          details: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
-      return { error: 'Failed to fetch currencies' };
     }
   }
 
   @Post('set-webhook')
   async setWebhook(@Body() payload: { url: string }) {
     try {
-      return await this.changeNowService.setWebhook(payload.url);
-    } catch (err: any) {
-      this.logger.error('setWebhook error', err.response?.data || err.message);
+      this.logger.log(`🔄 Setting webhook to: ${payload.url}`);
+      const result = await this.changeNowService.setWebhook(payload.url);
       return {
+        success: true,
+        data: result,
+      };
+    } catch (error: any) {
+      this.logger.error('❌ setWebhook error', error.message);
+      return {
+        success: false,
         error: 'Failed to set webhook',
-        details: err.response?.data || err.message,
+        details: error.message,
       };
     }
   }
 
   @Post('create-order')
-  async createOrder(@Body() payload: any) {
+  async createOrder(@Body() payload: CreateOrderDto) {
     try {
+      this.logger.log('📥 Creating new order', payload);
       const result = await this.changeNowService.createOrder(payload);
 
-      if (result.payUrl) {
-        return {
-          success: true,
+      return {
+        success: true,
+        data: {
           payUrl: result.payUrl,
-          transactionId: result.savedTransactionId,
-          message: 'Please redirect to the payment page',
-        };
-      }
+          transactionId: result.transactionId,
+          message: 'Order created successfully. Redirect to payment page.',
+        },
+      };
+    } catch (error: any) {
+      this.logger.error('❌ createOrder error', error.message);
+      throw new HttpException(
+        {
+          success: false,
+          error: 'Failed to create order',
+          details: error.message,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
 
-      return result;
-    } catch (err: any) {
-      this.logger.error('createOrder error', err.response?.data || err.message);
+  @Get('health')
+  async healthCheck() {
+    try {
+      const isConnected = await this.changeNowService.validateConnection();
+      return {
+        success: true,
+        status: 'healthy',
+        changenow: isConnected ? 'connected' : 'disconnected',
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
       return {
         success: false,
-        error: 'Failed to create order',
-        details: err.response?.data || err.message,
+        status: 'unhealthy',
+        error: error.message,
+        timestamp: new Date().toISOString(),
       };
     }
   }

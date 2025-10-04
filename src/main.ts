@@ -11,7 +11,7 @@ async function bootstrap() {
 
   // Enable CORS for the Next.js frontend
   app.enableCors({
-    origin: 'http://localhost:3001',
+    origin: ['http://localhost:3000', 'http://localhost:3001'],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
@@ -19,21 +19,37 @@ async function bootstrap() {
   // Use a global validation pipe
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true, // Strips away any properties that do not have any decorators
-      forbidNonWhitelisted: true, // Throws an error if non-whitelisted values are provided
-      transform: true, // Automatically transforms payloads to be objects typed according to their DTO classes
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
     }),
   );
 
-  const port = process.env.PORT || 3000;
+  const port = process.env.PORT || 3001;
   await app.listen(port);
-  console.log(`Backend API is running on: http://localhost:${port}`);
+  console.log(`✅ Backend API is running on: http://localhost:${port}`);
 
-  // اگر نیاز به ثبت وب‌هوک بود، دستی از طریق API فراخوانی کن
+  // Webhook is now optional - no blocking errors
+  const changeNowService = app.get(ChangeNowService);
+  setupOptionalWebhook(changeNowService);
 }
 
-async function setWebhook(service: ChangeNowService, url: string) {
-  // این تابع دیگر به صورت خودکار فراخوانی نمی‌شود
+async function setupOptionalWebhook(service: ChangeNowService) {
+  try {
+    // Try to set webhook but don't fail if it doesn't work
+    const ngrokUrl = process.env.NGROK_URL;
+    if (ngrokUrl) {
+      await service.setWebhook(`${ngrokUrl}/transactions/webhook`);
+      console.log(`✅ Webhook set to: ${ngrokUrl}/transactions/webhook`);
+    } else {
+      console.log('ℹ️  NGROK_URL not set, webhook disabled');
+    }
+  } catch (error: any) {
+    console.log(
+      '⚠️  Webhook optional - continuing without webhook:',
+      error.message,
+    );
+  }
 }
 
 bootstrap();

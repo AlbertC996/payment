@@ -4,15 +4,18 @@ import { AppService } from './app.service';
 import { ChangeNowModule } from './changenow/changenow.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { TransactionsModule } from './transactions/transactions.module';
-import { config } from '../config';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env',
+    }),
     MongooseModule.forRoot(
-      process.env.MONGODB_URI || config.database.mongodbUri,
+      process.env.MONGODB_URI || 'mongodb://localhost:27017/payment',
       {
-        // optional mongoose options
-        autoIndex: true,
+        autoIndex: process.env.NODE_ENV !== 'production',
       },
     ),
     ChangeNowModule,
