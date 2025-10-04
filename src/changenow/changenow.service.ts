@@ -1,4 +1,3 @@
-
 import { Injectable, Logger } from '@nestjs/common';
 import axios, { AxiosResponse } from 'axios';
 import { InjectModel } from '@nestjs/mongoose';
@@ -161,7 +160,10 @@ export class ChangeNowService {
         error.response?.data || error.message,
       );
       // فقط لاگ کن و پروژه را متوقف نکن
-      return { error: 'Failed to set webhook', details: error.response?.data || error.message };
+      return {
+        error: 'Failed to set webhook',
+        details: error.response?.data || error.message,
+      };
     }
   }
 }
