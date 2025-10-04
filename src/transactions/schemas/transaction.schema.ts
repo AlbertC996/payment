@@ -3,16 +3,8 @@ import { Document } from 'mongoose';
 
 export type TransactionDocument = Transaction & Document;
 
-@Schema({
-  timestamps: true,
-  toJSON: {
-    transform: function (doc, ret) {
-      ret.id = ret._id;
-      delete ret._id;
-      delete ret.__v;
-      return ret;
-    },
-  },
+@Schema({ 
+  timestamps: true
 })
 export class Transaction {
   @Prop({ required: true, index: true })
@@ -63,20 +55,10 @@ export class Transaction {
   @Prop()
   redirectUrl?: string;
 
-  @Prop({
-    required: true,
+  @Prop({ 
+    required: true, 
     default: 'pending',
-    enum: [
-      'pending',
-      'waiting',
-      'confirming',
-      'exchanging',
-      'sending',
-      'finished',
-      'failed',
-      'refunded',
-      'verifying',
-    ],
+    enum: ['pending', 'waiting', 'confirming', 'exchanging', 'sending', 'finished', 'failed', 'refunded', 'verifying']
   })
   status: string;
 

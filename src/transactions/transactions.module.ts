@@ -5,7 +5,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import {
   Transaction,
   TransactionSchema,
-} from '../currencies/schemas/transaction.schema';
+} from './schemas/transaction.schema'; // مسیر اصلاح شده
 
 @Module({
   imports: [
