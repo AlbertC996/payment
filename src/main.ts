@@ -29,21 +29,11 @@ async function bootstrap() {
   await app.listen(port);
   console.log(`Backend API is running on: http://localhost:${port}`);
 
-  // Set the webhook after the app starts
-  const changeNowService = app.get(ChangeNowService);
-  const ngrokUrl = process.env.NGROK_URL || `http://localhost:${port}`;
-  
-  // Run the webhook setup in the background to not block the app startup
-  setWebhook(changeNowService, ngrokUrl);
+  // اگر نیاز به ثبت وب‌هوک بود، دستی از طریق API فراخوانی کن
 }
 
 async function setWebhook(service: ChangeNowService, url: string) {
-  try {
-    await service.setWebhook(`${url}/transactions/webhook`);
-    console.log(`Webhook successfully set to ${url}/transactions/webhook`);
-  } catch (error: any) {
-    console.error('Failed to set webhook:', error.message);
-  }
+  // این تابع دیگر به صورت خودکار فراخوانی نمی‌شود
 }
 
 bootstrap();
