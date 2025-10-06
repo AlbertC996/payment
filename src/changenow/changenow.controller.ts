@@ -37,6 +37,7 @@ export class ChangeNowController {
   async createOrder(@Body() payload: any) {
     try {
       const result = await this.changeNowService.createOrder(payload);
+      console.log('🟢 Payload from frontend:', payload);
 
       if (result.payUrl) {
         return {

@@ -8,20 +8,20 @@ import {
 } from '../currencies/schemas/transaction.schema';
 
 export interface CreateOrderPayload {
-  from_currency?: string;
-  to_currency?: string;
-  from_amount?: string | number;
+  fromCurrency?: string;
+  toCurrency?: string;
+  fromAmount?: string | number;
   address?: string;
-  external_user_id?: string;
+  externalUserId?: string;
   country?: string;
-  payment_method?: string;
+  paymentMethod?: string;
+  email?: string;
 }
 
-//
 export interface CreateOrderResult {
-  changenow: any;
+  respData: any;
   savedTransactionId: string;
-  payUrl: string | undefined;
+  payUrl?: string;
 }
 
 @Injectable()
@@ -32,9 +32,9 @@ export class ChangeNowService {
   constructor(
     @InjectModel(Transaction.name)
     private transactionModel: Model<TransactionDocument>,
-  ) { }
+  ) {}
 
-  //     ChangeNOW
+  /** 📦     ChangeNOW */
   async getCurrencies(): Promise<any> {
     try {
       const url = 'https://api.changenow.io/v2/exchange/currencies';
@@ -45,40 +45,34 @@ export class ChangeNowService {
       return res.data;
     } catch (error: any) {
       this.logger.error(
-        'Failed to fetch currencies from ChangeNOW',
+        '❌ Failed to fetch currencies from ChangeNOW',
         error.response?.data || error.message,
       );
       throw new Error('Failed to fetch currencies from ChangeNOW');
     }
   }
 
+  /** 💳      (Fiat → Crypto) */
   async createOrder(payload: CreateOrderPayload): Promise<CreateOrderResult> {
-    const normalizedPayload = {
-      from_currency: (payload as any).from_currency || (payload as any).from,
-      to_currency: (payload as any).to_currency || (payload as any).to,
-      from_amount: (payload as any).from_amount || (payload as any).amount,
-      address: payload.address ?? process.env.WALLET_ADDRESS,
-      external_user_id: (payload as any).external_user_id || (payload as any).externalUserId || `user-${Date.now()}`,
-      country: payload.country,
-      payment_method: (payload as any).payment_method || (payload as any).paymentMethod || 'card',
-      email: (payload as any).email ?? '',
-    };
+    const endpoint = 'https://api.changenow.io/v2/exchange/by-card';
 
-    const url = 'https://api.changenow.io/v2/exchange/fiat';
+    // 🧩       API
+    const fromCurrency = payload.fromCurrency ?? (payload as any).currencyFrom;
+    const toCurrency = payload.toCurrency ?? (payload as any).currencyTo;
+    const fromAmount = payload.fromAmount ?? (payload as any).amount;
 
     const body = {
-      from: normalizedPayload.from_currency,
-      to: normalizedPayload.to_currency,
-      amount: normalizedPayload.from_amount,
-      address: normalizedPayload.address,
-      externalUserId: normalizedPayload.external_user_id,
-      country: normalizedPayload.country,
-      paymentMethod: normalizedPayload.payment_method,
-      email: normalizedPayload.email,
+      fromCurrency,
+      toCurrency,
+      fromAmount,
+      address: payload.address ?? process.env.WALLET_ADDRESS,
+      country: payload.country ?? 'US',
+      paymentMethod: payload.paymentMethod ?? 'card',
+      email: payload.email ?? '',
     };
 
     try {
-      const res = await axios.post(url, body, {
+      const res: AxiosResponse = await axios.post(endpoint, body, {
         headers: {
           'x-changenow-api-key': this.apiKey,
           'Content-Type': 'application/json',
@@ -88,18 +82,20 @@ export class ChangeNowService {
 
       const respData = res.data;
 
+      // 🧾    
       const tx = new this.transactionModel({
         orderId: respData.id || `cn_${Date.now()}`,
-        externalUserId: normalizedPayload.external_user_id,
+        externalUserId:
+          payload.externalUserId ?? payload.email ?? `user-${Date.now()}`,
         externalOrderId: respData.id || null,
         providerCode: 'changenow',
-        currencyFrom: normalizedPayload.from_currency,
-        currencyTo: normalizedPayload.to_currency,
-        amountFrom: normalizedPayload.from_amount?.toString() ?? '0',
-        country: normalizedPayload.country,
+        currencyFrom: fromCurrency, // 👈    ‌
+        currencyTo: toCurrency, // 👈    ‌
+        amountFrom: fromAmount?.toString() ?? '0',
+        country: payload.country ?? 'US',
         state: respData.status || 'created',
-        walletAddress: normalizedPayload.address,
-        paymentMethod: normalizedPayload.payment_method,
+        walletAddress: payload.address ?? process.env.WALLET_ADDRESS,
+        paymentMethod: payload.paymentMethod ?? 'card',
         metadata: respData,
         status: respData.status || 'pending',
       });
@@ -110,39 +106,40 @@ export class ChangeNowService {
         respData.payUrl || respData.redirectUrl || respData.checkoutUrl;
 
       return {
-        changenow: respData,
+        respData,
         savedTransactionId: tx._id.toString(),
         payUrl,
       };
     } catch (error: any) {
       this.logger.error(
-        'Failed to create order with ChangeNOW',
+        '❌ Failed to create order with ChangeNOW',
         error.response?.data || error.message,
       );
 
       const errTx = new this.transactionModel({
         orderId: `failed_${Date.now()}`,
-        externalUserId: normalizedPayload.external_user_id ?? 'unknown',
+        externalUserId: payload.externalUserId ?? 'unknown',
         providerCode: 'changenow',
-        currencyFrom: normalizedPayload.from_currency,
-        currencyTo: normalizedPayload.to_currency,
-        amountFrom: normalizedPayload.from_amount?.toString() ?? '0',
-        country: normalizedPayload.country ?? 'unknown',
+        currencyFrom: fromCurrency,
+        currencyTo: toCurrency,
+        amountFrom: fromAmount?.toString() ?? '0',
+        country: payload.country ?? 'unknown',
         state: 'failed',
-        walletAddress: normalizedPayload.address ?? process.env.WALLET_ADDRESS,
-        paymentMethod: normalizedPayload.payment_method ?? 'card',
+        walletAddress: payload.address ?? process.env.WALLET_ADDRESS,
+        paymentMethod: payload.paymentMethod ?? 'card',
         status: 'failed',
         errorType: error.response?.status ?? 'unknown',
         errorMessage: error.response?.data
           ? JSON.stringify(error.response.data)
           : error.message,
       });
-      await errTx.save();
 
+      await errTx.save();
       throw error;
     }
   }
 
+  /** 🔔  Webhook  ChangeNOW */
   async setWebhook(url: string): Promise<any> {
     try {
       const response: AxiosResponse = await axios.post(
@@ -156,19 +153,14 @@ export class ChangeNowService {
         },
       );
 
-      this.logger.log(`Webhook successfully set to ${url}`);
+      this.logger.log(`✅ Webhook successfully set to ${url}`);
       return response.data;
-    } catch (error: unknown) {
-      if (axios.isAxiosError(error)) {
-        this.logger.error(
-          'Axios error:',
-          error.response?.data || error.message,
-        );
-      } else if (error instanceof Error) {
-        this.logger.error('Generic error:', error.message);
-      } else {
-        this.logger.error('Unknown error type', JSON.stringify(error));
-      }
+    } catch (error: any) {
+      this.logger.error(
+        '❌ Failed to set webhook:',
+        error.response?.data || error.message,
+      );
+      throw new Error('Failed to set webhook');
     }
   }
 }
