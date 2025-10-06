@@ -7,18 +7,17 @@ import {
   TransactionDocument,
 } from '../currencies/schemas/transaction.schema';
 
-// اینترفیس برای ورودی سفارش
 export interface CreateOrderPayload {
-  from?: string;
-  to?: string;
-  amount?: string | number;
+  from_currency?: string;
+  to_currency?: string;
+  from_amount?: string | number;
   address?: string;
-  externalUserId?: string;
+  external_user_id?: string;
   country?: string;
-  paymentMethod?: string;
+  payment_method?: string;
 }
 
-// اینترفیس برای خروجی سفارش
+//
 export interface CreateOrderResult {
   changenow: any;
   savedTransactionId: string;
@@ -33,9 +32,9 @@ export class ChangeNowService {
   constructor(
     @InjectModel(Transaction.name)
     private transactionModel: Model<TransactionDocument>,
-  ) {}
+  ) { }
 
-  // دریافت لیست ارزها از ChangeNOW
+  //     ChangeNOW
   async getCurrencies(): Promise<any> {
     try {
       const url = 'https://api.changenow.io/v2/exchange/currencies';
@@ -53,23 +52,33 @@ export class ChangeNowService {
     }
   }
 
-  // ایجاد سفارش جدید و ذخیره در دیتابیس
   async createOrder(payload: CreateOrderPayload): Promise<CreateOrderResult> {
+    const normalizedPayload = {
+      from_currency: (payload as any).from_currency || (payload as any).from,
+      to_currency: (payload as any).to_currency || (payload as any).to,
+      from_amount: (payload as any).from_amount || (payload as any).amount,
+      address: payload.address ?? process.env.WALLET_ADDRESS,
+      external_user_id: (payload as any).external_user_id || (payload as any).externalUserId || `user-${Date.now()}`,
+      country: payload.country,
+      payment_method: (payload as any).payment_method || (payload as any).paymentMethod || 'card',
+      email: (payload as any).email ?? '',
+    };
+
     const url = 'https://api.changenow.io/v2/exchange/fiat';
 
-    // ساخت بدنه سفارش با مقادیر پیش‌فرض
     const body = {
-      from: payload.from ?? 'USD',
-      to: payload.to ?? 'USDT',
-      amount: payload.amount ?? '100',
-      address: payload.address ?? process.env.WALLET_ADDRESS,
-      externalUserId: payload.externalUserId ?? 'test-user-1',
-      country: payload.country ?? 'US',
-      paymentMethod: payload.paymentMethod ?? 'card',
+      from: normalizedPayload.from_currency,
+      to: normalizedPayload.to_currency,
+      amount: normalizedPayload.from_amount,
+      address: normalizedPayload.address,
+      externalUserId: normalizedPayload.external_user_id,
+      country: normalizedPayload.country,
+      paymentMethod: normalizedPayload.payment_method,
+      email: normalizedPayload.email,
     };
 
     try {
-      const res: AxiosResponse = await axios.post(url, body, {
+      const res = await axios.post(url, body, {
         headers: {
           'x-changenow-api-key': this.apiKey,
           'Content-Type': 'application/json',
@@ -79,26 +88,24 @@ export class ChangeNowService {
 
       const respData = res.data;
 
-      // ذخیره تراکنش موفق
       const tx = new this.transactionModel({
         orderId: respData.id || `cn_${Date.now()}`,
-        externalUserId: body.externalUserId,
+        externalUserId: normalizedPayload.external_user_id,
         externalOrderId: respData.id || null,
         providerCode: 'changenow',
-        currencyFrom: body.from,
-        currencyTo: body.to,
-        amountFrom: body.amount,
-        country: body.country,
+        currencyFrom: normalizedPayload.from_currency,
+        currencyTo: normalizedPayload.to_currency,
+        amountFrom: normalizedPayload.from_amount?.toString() ?? '0',
+        country: normalizedPayload.country,
         state: respData.status || 'created',
-        walletAddress: body.address,
-        paymentMethod: body.paymentMethod,
+        walletAddress: normalizedPayload.address,
+        paymentMethod: normalizedPayload.payment_method,
         metadata: respData,
         status: respData.status || 'pending',
       });
 
       await tx.save();
 
-      // استخراج لینک پرداخت
       const payUrl: string | undefined =
         respData.payUrl || respData.redirectUrl || respData.checkoutUrl;
 
@@ -113,32 +120,29 @@ export class ChangeNowService {
         error.response?.data || error.message,
       );
 
-      // ذخیره تراکنش ناموفق
       const errTx = new this.transactionModel({
         orderId: `failed_${Date.now()}`,
-        externalUserId: payload.externalUserId ?? 'unknown',
+        externalUserId: normalizedPayload.external_user_id ?? 'unknown',
         providerCode: 'changenow',
-        currencyFrom: payload.from,
-        currencyTo: payload.to,
-        amountFrom: payload.amount?.toString() ?? '0',
-        country: payload.country ?? 'unknown',
+        currencyFrom: normalizedPayload.from_currency,
+        currencyTo: normalizedPayload.to_currency,
+        amountFrom: normalizedPayload.from_amount?.toString() ?? '0',
+        country: normalizedPayload.country ?? 'unknown',
         state: 'failed',
-        walletAddress: payload.address ?? process.env.WALLET_ADDRESS,
-        paymentMethod: payload.paymentMethod ?? 'card',
+        walletAddress: normalizedPayload.address ?? process.env.WALLET_ADDRESS,
+        paymentMethod: normalizedPayload.payment_method ?? 'card',
         status: 'failed',
         errorType: error.response?.status ?? 'unknown',
         errorMessage: error.response?.data
           ? JSON.stringify(error.response.data)
           : error.message,
       });
-
       await errTx.save();
 
       throw error;
     }
   }
 
-  // ست کردن وب‌هوک برای دریافت وضعیت تراکنش‌ها
   async setWebhook(url: string): Promise<any> {
     try {
       const response: AxiosResponse = await axios.post(
@@ -154,16 +158,17 @@ export class ChangeNowService {
 
       this.logger.log(`Webhook successfully set to ${url}`);
       return response.data;
-    } catch (error: any) {
-      this.logger.error(
-        'Failed to set ChangeNOW webhook',
-        error.response?.data || error.message,
-      );
-      // فقط لاگ کن و پروژه را متوقف نکن
-      return {
-        error: 'Failed to set webhook',
-        details: error.response?.data || error.message,
-      };
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        this.logger.error(
+          'Axios error:',
+          error.response?.data || error.message,
+        );
+      } else if (error instanceof Error) {
+        this.logger.error('Generic error:', error.message);
+      } else {
+        this.logger.error('Unknown error type', JSON.stringify(error));
+      }
     }
   }
 }
