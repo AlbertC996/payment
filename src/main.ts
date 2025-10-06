@@ -32,7 +32,6 @@ async function bootstrap() {
   await app.listen(port);
   console.log(`Backend & Frontend is running on: http://localhost:${port}`);
 
-  // Fallback فقط بعد از هندلرهای NestJS
   app.use((req: express.Request, res: express.Response) => {
     res.sendFile(join(publicPath, 'index.html'));
   });
